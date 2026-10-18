@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniFind — Campus Lost & Found Intelligence System</title>
+    <meta name="description" content="A comprehensive MongoDB and PyMongo powered campus lost and found tracking platform featuring strict $jsonSchema validation, real-time CRUD operations, and multi-stage aggregation analytics.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js for Aggregation Data Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand-group">
+                <div class="brand-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <path d="M11 8v6M8 11h6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="brand-title">UniFind <span class="badge-tech">MongoDB + PyMongo</span></h1>
+                    <p class="brand-subtitle">Campus Lost & Found Intelligence System</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button id="btn-seed-data" class="btn btn-secondary" title="Reset and seed realistic campus data for presentation">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"></path>
+                    </svg>
+                    <span>Seed Demo Data</span>
+                </button>
+                <button id="btn-open-create-modal" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Report Item</span>
+                </button>
+                <button id="theme-toggle" class="btn-icon" aria-label="Toggle Dark/Light Mode" title="Toggle Theme">
+                    <span id="theme-icon">☀️</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Live KPI Stats Ribbon (Powered by MongoDB $facet Aggregation) -->
+        <section class="kpi-ribbon" id="kpi-ribbon">
+            <div class="kpi-card" id="kpi-total">
+                <div class="kpi-icon icon-indigo">📦</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Total Reported</span>
+                    <h2 class="kpi-value" id="stat-total-items">-</h2>
+                </div>
+            </div>
+            <div class="kpi-card" id="kpi-lost">
+                <div class="kpi-icon icon-rose">🔍</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Active Lost Items</span>
+                    <h2 class="kpi-value" id="stat-total-lost">-</h2>
+                </div>
+            </div>
+            <div class="kpi-card" id="kpi-found">
+                <div class="kpi-icon icon-amber">🎒</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Found Awaiting Claim</span>
+                    <h2 class="kpi-value" id="stat-total-found">-</h2>
+                </div>
+            </div>
+            <div class="kpi-card" id="kpi-claimed">
+                <div class="kpi-icon icon-emerald">✅</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Successfully Returned</span>
+                    <h2 class="kpi-value" id="stat-total-claimed">-</h2>
+                </div>
+            </div>
+            <div class="kpi-card" id="kpi-rate">
+                <div class="kpi-icon icon-cyan">⚡</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Recovery Rate</span>
+                    <h2 class="kpi-value" id="stat-recovery-rate">-%</h2>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs" role="tablist">
+            <button class="tab-btn active" id="tab-btn-items" data-tab="tab-items" role="tab" aria-selected="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span>Items Directory (CRUD)</span>
+            </button>
+            <button class="tab-btn" id="tab-btn-analytics" data-tab="tab-analytics" role="tab" aria-selected="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span>Aggregation Pipelines & Analytics</span>
+            </button>
+            <button class="tab-btn" id="tab-btn-schema" data-tab="tab-schema" role="tab" aria-selected="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <span>MongoDB $jsonSchema & Validation Inspector</span>
+            </button>
+        </nav>
+
+        <!-- TAB 1: Items Directory (CRUD) -->
+        <section id="tab-items" class="tab-content active">
+            <!-- Filter & Search Toolbar -->
+            <div class="filter-card">
+                <div class="search-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="input-search" placeholder="Search by title, description, tags, spot..." autocomplete="off">
+                    <button id="btn-clear-search" class="btn-clear" style="display: none;">&times;</button>
+                </div>
+
+                <div class="filter-controls">
+                    <!-- Type Pills -->
+                    <div class="type-pills">
+                        <button class="pill-btn active" data-type="">All Types</button>
+                        <button class="pill-btn" data-type="Lost">Lost Only</button>
+                        <button class="pill-btn" data-type="Found">Found Only</button>
+                    </div>
+
+                    <!-- Category Dropdown -->
+                    <select id="filter-category" class="select-input">
+                        <option value="">All Categories</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Student ID / Cards">Student ID / Cards</option>
+                        <option value="Keys & Badges">Keys & Badges</option>
+                        <option value="Books & Stationery">Books & Stationery</option>
+                        <option value="Bags & Wallets">Bags & Wallets</option>
+                        <option value="Personal Accessories">Personal Accessories</option>
+                        <option value="Clothing & Gear">Clothing & Gear</option>
+                        <option value="Others">Others</option>
+                    </select>
+
+                    <!-- Location Dropdown -->
+                    <select id="filter-location" class="select-input">
+                        <option value="">All Locations</option>
+                        <option value="Central Library">Central Library</option>
+                        <option value="Main Cafeteria">Main Cafeteria</option>
+                        <option value="Science & Engineering Block">Science & Engineering Block</option>
+                        <option value="Auditorium Complex">Auditorium Complex</option>
+                        <option value="Student Center & Gym">Student Center & Gym</option>
+                        <option value="North Quad Lawn">North Quad Lawn</option>
+                        <option value="Parking Lot A">Parking Lot A</option>
+                        <option value="Administrative Building">Administrative Building</option>
+                    </select>
+
+                    <!-- Status Dropdown -->
+                    <select id="filter-status" class="select-input">
+                        <option value="">All Statuses</option>
+                        <option value="Open">Open</option>
+                        <option value="Under Review">Under Review</option>
+                        <option value="Claimed">Claimed</option>
+                        <option value="Archived">Archived</option>
+                    </select>
+
+                    <!-- Sort -->
+                    <select id="filter-sort" class="select-input">
+                        <option value="date_desc">Newest First</option>
+                        <option value="date_asc">Oldest First</option>
+                        <option value="title_asc">Title (A-Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Items Counter & Active Filter Tags -->
+            <div class="items-meta-bar">
+                <span id="items-count-text">Loading items from MongoDB...</span>
+                <button id="btn-refresh-items" class="btn-refresh" title="Refresh list">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"></path>
+                    </svg> Refresh
+                </button>
+            </div>
+
+            <!-- Items Grid -->
+            <div id="items-grid" class="items-grid">
+                <!-- Dynamically rendered by app.js -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="items-empty-state" class="empty-state" style="display: none;">
+                <div class="empty-icon">📂</div>
+                <h3>No items match your filter</h3>
+                <p>Try adjusting your search query, selecting different campus locations, or click "Report Item" to add a new document.</p>
+                <button id="btn-reset-filters" class="btn btn-secondary">Reset Filters</button>
+            </div>
+        </section>
+
+        <!-- TAB 2: Aggregation Pipelines & Analytics -->
+        <section id="tab-analytics" class="tab-content">
+            <div class="analytics-intro">
+                <h2>MongoDB Aggregation Framework in Action</h2>
+                <p>The visualizations below are computed in real time using multi-stage MongoDB aggregation pipelines with <code>$group</code>, <code>$project</code>, <code>$facet</code>, <code>$cond</code>, <code>$subtract</code>, and <code>$sort</code>.</p>
+            </div>
+
+            <div class="analytics-grid">
+                <!-- Chart 1: Campus Hotspots -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3 class="chart-title">1. Campus Activity Hotspots</h3>
+                            <p class="chart-subtitle">Grouped by campus location with breakdown of Lost vs. Found items</p>
+                        </div>
+                        <span class="badge-pipeline">$group + $sort</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-hotspots"></canvas>
+                    </div>
+                    <details class="pipeline-details">
+                        <summary>🔍 Inspect MongoDB Aggregation Pipeline</summary>
+                        <pre class="code-block" id="pipeline-hotspots-code">Loading pipeline...</pre>
+                    </details>
+                </div>
+
+                <!-- Chart 2: Category Resolution Rate -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3 class="chart-title">2. Category Claim & Recovery Rate</h3>
+                            <p class="chart-subtitle">Calculated recovery resolution percentage across item categories</p>
+                        </div>
+                        <span class="badge-pipeline">$group + $cond + $project</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-categories"></canvas>
+                    </div>
+                    <details class="pipeline-details">
+                        <summary>🔍 Inspect MongoDB Aggregation Pipeline</summary>
+                        <pre class="code-block" id="pipeline-categories-code">Loading pipeline...</pre>
+                    </details>
+                </div>
+
+                <!-- Chart 3: Average Resolution Turnaround Time -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3 class="chart-title">3. Average Recovery Turnaround (Days)</h3>
+                            <p class="chart-subtitle">Date subtraction between date_reported and claimed_date</p>
+                        </div>
+                        <span class="badge-pipeline">$match + $subtract + $avg</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-turnaround"></canvas>
+                    </div>
+                    <details class="pipeline-details">
+                        <summary>🔍 Inspect MongoDB Aggregation Pipeline</summary>
+                        <pre class="code-block" id="pipeline-turnaround-code">Loading pipeline...</pre>
+                    </details>
+                </div>
+
+                <!-- Chart 4: Reporter Roles Demographics -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3 class="chart-title">4. Reporter Demographics</h3>
+                            <p class="chart-subtitle">Multi-faceted sub-pipeline from the single $facet execution</p>
+                        </div>
+                        <span class="badge-pipeline">$facet sub-pipeline</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-roles"></canvas>
+                    </div>
+                    <details class="pipeline-details">
+                        <summary>🔍 Inspect MongoDB Aggregation Pipeline</summary>
+                        <pre class="code-block" id="pipeline-facet-code">Loading pipeline...</pre>
+                    </details>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: Schema & Validation Inspector -->
+        <section id="tab-schema" class="tab-content">
+            <div class="schema-container">
+                <div class="schema-header-block">
+                    <h2>Database-Level Validation ($jsonSchema)</h2>
+                    <p>MongoDB enforces strict data integrity rules directly in the engine. Documents that fail type checks, min/max bounds, required fields, or regex patterns are rejected with a <code>WriteError</code>.</p>
+                </div>
+
+                <!-- Interactive Live Test Demonstration Card for Class Presentation -->
+                <div class="demo-test-card">
+                    <div class="demo-test-header">
+                        <div class="demo-badge">Presentation Feature</div>
+                        <h3>Live Schema Validation Enforcement Test</h3>
+                        <p>Click below to attempt inserting an intentionally invalid document into MongoDB (violates <code>minLength</code>, illegal <code>enum</code>, missing required fields). MongoDB's database engine will catch and reject it!</p>
+                    </div>
+                    <div class="demo-test-action">
+                        <button id="btn-test-validation" class="btn btn-warning">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                            <span>Trigger Invalid Document Insert Test</span>
+                        </button>
+                    </div>
+                    <div id="validation-test-result" class="test-result-box" style="display: none;">
+                        <!-- Results dynamically injected -->
+                    </div>
+                </div>
+
+                <!-- MongoDB $jsonSchema Viewer -->
+                <div class="schema-viewer-card">
+                    <div class="schema-viewer-header">
+                        <h3>Active MongoDB Collection Validator Schema</h3>
+                        <span class="badge-tech">collection: items</span>
+                    </div>
+                    <pre class="code-block schema-code" id="schema-json-display">Loading schema from MongoDB...</pre>
+                </div>
+            </div>
+        </section>
+    </main>
+
+
+    <!-- MODAL 1: Report New Item (CREATE) -->
+    <div id="modal-create" class="modal-backdrop" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title">Report Campus Item</h3>
+                    <p class="modal-subtitle">Direct PyMongo insert with MongoDB $jsonSchema validation</p>
+                </div>
+                <button class="btn-close-modal" data-close="modal-create">&times;</button>
+            </div>
+            <form id="form-create-item" class="modal-body">
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="create-type">Item Type <span class="required">*</span></label>
+                        <select id="create-type" name="type" class="form-control" required>
+                            <option value="Lost">Lost Item (I lost something)</option>
+                            <option value="Found">Found Item (I found something)</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="create-category">Category <span class="required">*</span></label>
+                        <select id="create-category" name="category" class="form-control" required>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Student ID / Cards">Student ID / Cards</option>
+                            <option value="Keys & Badges">Keys & Badges</option>
+                            <option value="Books & Stationery">Books & Stationery</option>
+                            <option value="Bags & Wallets">Bags & Wallets</option>
+                            <option value="Personal Accessories">Personal Accessories</option>
+                            <option value="Clothing & Gear">Clothing & Gear</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="create-title">Item Title <span class="required">*</span></label>
+                    <input type="text" id="create-title" name="title" class="form-control" placeholder="e.g. Blue Hydro Flask 32oz with NASA sticker" minlength="3" maxlength="100" required>
+                    <small class="field-hint">Min 3 characters, max 100 characters.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="create-description">Detailed Description <span class="required">*</span></label>
+                    <textarea id="create-description" name="description" class="form-control" rows="3" placeholder="Describe color, scratches, brand, stickers, unique identification marks..." minlength="5" maxlength="600" required></textarea>
+                    <small class="field-hint">Min 5 characters, max 600 characters.</small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="create-location">Campus Location <span class="required">*</span></label>
+                        <select id="create-location" name="campus_location" class="form-control" required>
+                            <option value="Central Library">Central Library</option>
+                            <option value="Main Cafeteria">Main Cafeteria</option>
+                            <option value="Science & Engineering Block">Science & Engineering Block</option>
+                            <option value="Auditorium Complex">Auditorium Complex</option>
+                            <option value="Student Center & Gym">Student Center & Gym</option>
+                            <option value="North Quad Lawn">North Quad Lawn</option>
+                            <option value="Parking Lot A">Parking Lot A</option>
+                            <option value="Administrative Building">Administrative Building</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="create-spot">Specific Spot on Campus</label>
+                        <input type="text" id="create-spot" name="specific_spot" class="form-control" placeholder="e.g. 2nd Floor Study Desk 14" maxlength="150">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="create-tags">Search Tags (Comma separated)</label>
+                        <input type="text" id="create-tags" name="tags" class="form-control" placeholder="e.g. hydroflask, blue, water bottle">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="create-date-incident">Date of Incident</label>
+                        <input type="datetime-local" id="create-date-incident" name="date_incident" class="form-control">
+                    </div>
+                </div>
+
+                <!-- Reporter Sub-document -->
+                <div class="subform-box">
+                    <h4 class="subform-title">Reporter Information</h4>
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="create-reporter-name">Your Full Name <span class="required">*</span></label>
+                            <input type="text" id="create-reporter-name" name="reporter_name" class="form-control" placeholder="e.g. John Doe" minlength="2" maxlength="80" required>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="create-reporter-role">Campus Role <span class="required">*</span></label>
+                            <select id="create-reporter-role" name="reporter_role" class="form-control" required>
+                                <option value="Student">Student</option>
+                                <option value="Faculty">Faculty</option>
+                                <option value="Staff">Staff</option>
+                                <option value="Visitor">Visitor</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="create-reporter-email">Campus Email <span class="required">*</span></label>
+                            <input type="email" id="create-reporter-email" name="reporter_email" class="form-control" placeholder="e.g. john.doe@campus.edu" required>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="create-reporter-phone">Phone Number (Optional)</label>
+                            <input type="tel" id="create-reporter-phone" name="reporter_phone" class="form-control" placeholder="+1-555-0100">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-create">Cancel</button>
+                    <button type="submit" id="btn-submit-create" class="btn btn-primary">
+                        <span>Save to MongoDB</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Item Detail & Quick Claim Verification -->
+    <div id="modal-detail" class="modal-backdrop" style="display: none;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <div>
+                    <span id="detail-type-badge" class="badge">Type</span>
+                    <h3 id="detail-title" class="modal-title">Item Title</h3>
+                </div>
+                <button class="btn-close-modal" data-close="modal-detail">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-grid">
+                    <div class="detail-field">
+                        <span class="detail-label">Status</span>
+                        <div id="detail-status-wrapper"></div>
+                    </div>
+                    <div class="detail-field">
+                        <span class="detail-label">Category</span>
+                        <span id="detail-category" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-field">
+                        <span class="detail-label">Campus Location</span>
+                        <span id="detail-location" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-field">
+                        <span class="detail-label">Specific Spot</span>
+                        <span id="detail-spot" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-field">
+                        <span class="detail-label">Date Reported</span>
+                        <span id="detail-date" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-field">
+                        <span class="detail-label">MongoDB _id</span>
+                        <code id="detail-id" class="detail-mono">-</code>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h4 class="detail-section-title">Item Description</h4>
+                    <p id="detail-description" class="detail-description-text">-</p>
+                </div>
+
+                <div class="detail-section">
+                    <h4 class="detail-section-title">Search Tags</h4>
+                    <div id="detail-tags" class="tags-container"></div>
+                </div>
+
+                <div class="detail-section">
+                    <h4 class="detail-section-title">Reporter Information</h4>
+                    <div class="reporter-card">
+                        <div class="reporter-avatar" id="detail-reporter-avatar">👤</div>
+                        <div class="reporter-info">
+                            <h5 id="detail-reporter-name">-</h5>
+                            <span id="detail-reporter-role" class="badge badge-role">Role</span>
+                            <p id="detail-reporter-contact" class="reporter-contact">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Claim Details if already Claimed -->
+                <div id="detail-claim-box" class="claim-resolved-box" style="display: none;">
+                    <div class="claim-resolved-header">
+                        <span class="claim-icon">✅</span>
+                        <div>
+                            <h4>Claim Verification Record</h4>
+                            <p id="detail-claim-subtext">-</p>
+                        </div>
+                    </div>
+                    <p id="detail-claim-notes" class="claim-notes-text">-</p>
+                </div>
+
+                <!-- Claim Action Form (Visible only if NOT claimed) -->
+                <div id="claim-action-container" class="claim-action-box">
+                    <h4 class="claim-action-title">Mark as Claimed / Returned</h4>
+                    <p class="claim-action-desc">Record verification notes when the rightful owner collects this item.</p>
+                    <form id="form-claim-item">
+                        <input type="hidden" id="claim-item-id">
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="claim-name">Claimant Name <span class="required">*</span></label>
+                                <input type="text" id="claim-name" class="form-control" placeholder="Full name of person collecting" required>
+                            </div>
+                            <div class="form-group flex-2">
+                                <label for="claim-notes">Verification Method / Notes <span class="required">*</span></label>
+                                <input type="text" id="claim-notes" class="form-control" placeholder="e.g. Matched student ID #8392, unlocked phone screen" required>
+                            </div>
+                        </div>
+                        <button type="submit" id="btn-submit-claim" class="btn btn-success">
+                            <span>Complete Verification & Mark Claimed</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-close="modal-detail">Close</button>
+                <button type="button" id="btn-open-edit-modal" class="btn btn-secondary">Edit Details</button>
+                <button type="button" id="btn-delete-item" class="btn btn-danger">Delete from MongoDB</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Edit Item (UPDATE) -->
+    <div id="modal-edit" class="modal-backdrop" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title">Edit Item Details</h3>
+                    <p class="modal-subtitle">Update fields via MongoDB <code>$set</code> update</p>
+                </div>
+                <button class="btn-close-modal" data-close="modal-edit">&times;</button>
+            </div>
+            <form id="form-edit-item" class="modal-body">
+                <input type="hidden" id="edit-item-id">
+                
+                <div class="form-group">
+                    <label for="edit-title">Title <span class="required">*</span></label>
+                    <input type="text" id="edit-title" class="form-control" required minlength="3" maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-description">Description <span class="required">*</span></label>
+                    <textarea id="edit-description" class="form-control" rows="3" required minlength="5" maxlength="600"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="edit-category">Category</label>
+                        <select id="edit-category" class="form-control">
+                            <option value="Electronics">Electronics</option>
+                            <option value="Student ID / Cards">Student ID / Cards</option>
+                            <option value="Keys & Badges">Keys & Badges</option>
+                            <option value="Books & Stationery">Books & Stationery</option>
+                            <option value="Bags & Wallets">Bags & Wallets</option>
+                            <option value="Personal Accessories">Personal Accessories</option>
+                            <option value="Clothing & Gear">Clothing & Gear</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="edit-location">Campus Location</label>
+                        <select id="edit-location" class="form-control">
+                            <option value="Central Library">Central Library</option>
+                            <option value="Main Cafeteria">Main Cafeteria</option>
+                            <option value="Science & Engineering Block">Science & Engineering Block</option>
+                            <option value="Auditorium Complex">Auditorium Complex</option>
+                            <option value="Student Center & Gym">Student Center & Gym</option>
+                            <option value="North Quad Lawn">North Quad Lawn</option>
+                            <option value="Parking Lot A">Parking Lot A</option>
+                            <option value="Administrative Building">Administrative Building</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="edit-spot">Specific Spot</label>
+                        <input type="text" id="edit-spot" class="form-control">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="edit-status">Status</label>
+                        <select id="edit-status" class="form-control">
+                            <option value="Open">Open</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="Claimed">Claimed</option>
+                            <option value="Archived">Archived</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-tags">Tags (comma separated)</label>
+                    <input type="text" id="edit-tags" class="form-control">
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-edit">Cancel</button>
+                    <button type="submit" id="btn-submit-edit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Custom JavaScript Application -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
